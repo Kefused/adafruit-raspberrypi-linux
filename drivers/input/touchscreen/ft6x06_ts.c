@@ -95,6 +95,11 @@ static int ft6x06_read(struct i2c_client *client, u8 reg, u8 len, void *data)
 	return i2c_smbus_read_i2c_block_data(client, reg, len, data);
 }
 
+static int ft6x06_write(struct i2c_client *client, u8 reg, u8 len, void *data)
+{
+	return i2c_smbus_write_i2c_block_data(client, reg, len, data);
+}
+
 static int ft6x06_read_touchdata(struct ft6x06_ts_data *data)
 {
 	struct ts_event *event = data->events;
@@ -381,11 +386,15 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 
 	/* allow touch panel controller to boot, before querying it */
 	msleep(150);
+	
 
 	ft6x06_read(client, FT6x06_REG_THGROUP, 1, &val);
-	printk("[FTS] touch threshold is %d.\n",
+	printk("[FTS] touch threshold before is %d.\n",
 		val * 4);
-
+	val = 0x80;
+	ft6x06_write(client, FT6x06_REG_THGROUP, 1, &val);		
+	printk("[FTS] touch threshold before is %d.\n",
+		val * 4);
 #ifdef DEBUG
 	{
 		u8 val;
