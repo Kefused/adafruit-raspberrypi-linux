@@ -392,8 +392,9 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	printk("[FTS] touch threshold before is %d.\n",
 		val * 4);
 	val = 0x80;
-	ft6x06_write(client, FT6x06_REG_THGROUP, 1, &val);		
-	printk("[FTS] touch threshold before is %d.\n",
+	ft6x06_write(client, FT6x06_REG_THGROUP, 1, &val);
+	ft6x06_read(client, FT6x06_REG_THGROUP, 1, &val);
+	printk("[FTS] touch threshold after is %d.\n",
 		val * 4);
 #ifdef DEBUG
 	{
