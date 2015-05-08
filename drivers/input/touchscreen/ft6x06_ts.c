@@ -35,6 +35,8 @@
 
 #include <linux/input/ft6x06_ts.h>
 
+#define DEBUG
+
 struct ts_event {
 	u16 x;
 	u16 y;
