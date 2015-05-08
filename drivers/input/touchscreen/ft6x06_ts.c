@@ -381,6 +381,10 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	/* allow touch panel controller to boot, before querying it */
 	msleep(150);
 
+	ft6x06_read(client, FT6x06_REG_THGROUP, 1, &val);
+	printk(&client->dev, "[FTS] touch threshold is %d.\n",
+		val * 4);
+
 #ifdef DEBUG
 	{
 		u8 val;
