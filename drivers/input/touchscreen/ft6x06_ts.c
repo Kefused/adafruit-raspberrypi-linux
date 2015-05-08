@@ -14,6 +14,7 @@
  * GNU General Public License for more details.
  *
  */
+#define DEBUG
 
 #include <linux/i2c.h>
 #include <linux/input.h>
@@ -35,7 +36,6 @@
 
 #include <linux/input/ft6x06_ts.h>
 
-#define DEBUG
 
 struct ts_event {
 	u16 x;
