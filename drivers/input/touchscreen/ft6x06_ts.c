@@ -269,6 +269,7 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 	struct ft6x06_ts_data *ft6x06_ts;
 	struct input_dev *input_dev;
 	int err = 0;
+	u8 val;
 
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev,
