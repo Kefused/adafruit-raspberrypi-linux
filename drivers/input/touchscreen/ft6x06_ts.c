@@ -517,10 +517,26 @@ static int thgroup_proc_open(struct inode *inode, struct  file *file) {
   return single_open(file, thgroup_proc_show, NULL);
 }
 
+static ssize_t thgroup_proc_write(struct file *filp,
+   const char *buff,
+   size_t len,
+   loff_t *off)
+{
+   u8 val;
+   unsigned int threshold;
+   
+   if ((sscanf(buff, "%u", &threshold) != 1) || (threshold > 0xff * 4))
+   	return -EINVAL;
+   val = (u8)(threshold / 4);
+   ft6x06_write(global_i2c_client, FT6x06_REG_THGROUP, 1, &val);
+
+   return len;
+}
 
 static const struct file_operations thgroup_proc_fops = {
   .owner = THIS_MODULE,
   .open = thgroup_proc_open,
+  .write = thgroup_proc_write,
   .read = seq_read,
   .llseek = seq_lseek,
   .release = single_release,
