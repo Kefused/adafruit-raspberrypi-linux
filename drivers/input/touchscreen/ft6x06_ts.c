@@ -35,13 +35,16 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 #include <linux/input/ft6x06_ts.h>
 
 
 #define PROCFS_THGROUP	"thgroup"
+#define PROCFS_MAX_SIZE 16
 
 static struct proc_dir_entry *thgroup_proc_file;
+static struct i2c_client *global_i2c_client = NULL;
 
 struct ts_event {
 	u16 x;
@@ -315,6 +318,7 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, ft6x06_ts);
 	ft6x06_ts->client = client;
+	global_i2c_client = client;
 	ft6x06_ts->pdata = pdata;
 	ft6x06_ts->x_max = 4095;
 	ft6x06_ts->y_max = 4095;
@@ -500,70 +504,33 @@ static struct i2c_driver ft6x06_ts_driver = {
 };
 
 
-int 
-thgroup_procfile_read(char *buffer,
-	      char **buffer_location,
-	      off_t offset, int buffer_length, int *eof, void *data)
-{
-	int ret;
-	u8 val;
-	char result[6];
-	int result_size;
-
-	ft6x06_read(client, FT6x06_REG_THGROUP, 1, &val);
-	result_size = snprintf(result, 6, "%u\n", val * 4);
-	
-	if (offset > 0) {
-		ret  = 0;
-	} else {
-		memcpy(buffer, result, result_size+1);
-		ret = result_size+1;
-	}
-
-	return ret;
+static int thgroup_proc_show(struct seq_file *m, void *v) {
+  u8 val;
+  if (global_i2c_client == NULL)
+	 return -ENOMEM; 
+  ft6x06_read(global_i2c_client, FT6x06_REG_THGROUP, 1, &val);
+  seq_printf(m, "%u\n", val * 4);
+  return 0;
 }
 
-int 
-thgroup_procfile_write(struct file *file, 
-			const char *buffer, unsigned long count,
-		   	void *data)
-{
-
-	unsigned int val;
-	unsigned int procfs_buffer_size;
-	
-	/* get buffer size */
-	procfs_buffer_size = count;
-	if (procfs_buffer_size > PROCFS_MAX_SIZE ) {
-		procfs_buffer_size = PROCFS_MAX_SIZE;
-	}
-
-	if ((sscanf(buffer, "%d", &val) != 1) || (val > 0xff*4))
-		return -EFAULT;
-	val = val/4;
-	ft6x06_read(client, FT6x06_REG_THGROUP, 1, &val);
-
-	return procfs_buffer_size;
+static int thgroup_proc_open(struct inode *inode, struct  file *file) {
+  return single_open(file, thgroup_proc_show, NULL);
 }
+
+
+static const struct file_operations thgroup_proc_fops = {
+  .owner = THIS_MODULE,
+  .open = thgroup_proc_open,
+  .read = seq_read,
+  .llseek = seq_lseek,
+  .release = single_release,
+};
 
 static int __init ft6x06_ts_init(void)
 {
 	int ret;
-	thgroup_proc_file = create_proc_entry(PROCFS_THGROUP, 0644, NULL);
-	if (thgroup_proc_file == NULL) {
-		remove_proc_entry(PROCFS_THGROUP, &proc_root);
-		printk(KERN_ALERT "Error: Could not initialize /proc/%s\n",
-			PROCFS_THGROUP);
-		return -ENOMEM;
-	}
 
-	thgroup_proc_file->read_proc  = thgroup_procfile_read;
-	thgroup_proc_file->write_proc = thgroup_procfile_write;
-	thgroup_proc_file->owner 	  = THIS_MODULE;
-	thgroup_proc_file->mode 	  = S_IFREG | S_IRUGO;
-	thgroup_proc_file->uid 	  = 0;
-	thgroup_proc_file->gid 	  = 0;
-	thgroup_proc_file->size 	  = 37;
+	proc_create(PROCFS_THGROUP, 0, NULL, &thgroup_proc_fops);
 
 	ret = i2c_add_driver(&ft6x06_ts_driver);
 	if (ret)
@@ -574,7 +541,7 @@ static int __init ft6x06_ts_init(void)
 
 static void __exit ft6x06_ts_exit(void)
 {
-	remove_proc_entry(PROCFS_THGROUP, &proc_root);
+	remove_proc_entry(PROCFS_THGROUP, NULL);
 	i2c_del_driver(&ft6x06_ts_driver);
 }
 
