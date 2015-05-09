@@ -34,8 +34,14 @@
 #include <linux/timer.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/proc_fs.h>
 
 #include <linux/input/ft6x06_ts.h>
+
+
+#define PROCFS_THGROUP	"thgroup"
+
+static struct proc_dir_entry *thgroup_proc_file;
 
 struct ts_event {
 	u16 x;
@@ -493,9 +499,72 @@ static struct i2c_driver ft6x06_ts_driver = {
 	},
 };
 
+
+int 
+thgroup_procfile_read(char *buffer,
+	      char **buffer_location,
+	      off_t offset, int buffer_length, int *eof, void *data)
+{
+	int ret;
+	u8 val;
+	char result[6];
+	int result_size;
+
+	ft6x06_read(client, FT6x06_REG_THGROUP, 1, &val);
+	result_size = snprintf(result, 6, "%u\n", val * 4);
+	
+	if (offset > 0) {
+		ret  = 0;
+	} else {
+		memcpy(buffer, result, result_size+1);
+		ret = result_size+1;
+	}
+
+	return ret;
+}
+
+int 
+thgroup_procfile_write(struct file *file, 
+			const char *buffer, unsigned long count,
+		   	void *data)
+{
+
+	unsigned int val;
+	unsigned int procfs_buffer_size;
+	
+	/* get buffer size */
+	procfs_buffer_size = count;
+	if (procfs_buffer_size > PROCFS_MAX_SIZE ) {
+		procfs_buffer_size = PROCFS_MAX_SIZE;
+	}
+
+	if ((sscanf(buffer, "%d", &val) != 1) || (val > 0xff*4))
+		return -EFAULT;
+	val = val/4;
+	ft6x06_read(client, FT6x06_REG_THGROUP, 1, &val);
+
+	return procfs_buffer_size;
+}
+
 static int __init ft6x06_ts_init(void)
 {
 	int ret;
+	thgroup_proc_file = create_proc_entry(PROCFS_THGROUP, 0644, NULL);
+	if (thgroup_proc_file == NULL) {
+		remove_proc_entry(PROCFS_THGROUP, &proc_root);
+		printk(KERN_ALERT "Error: Could not initialize /proc/%s\n",
+			PROCFS_THGROUP);
+		return -ENOMEM;
+	}
+
+	thgroup_proc_file->read_proc  = thgroup_procfile_read;
+	thgroup_proc_file->write_proc = thgroup_procfile_write;
+	thgroup_proc_file->owner 	  = THIS_MODULE;
+	thgroup_proc_file->mode 	  = S_IFREG | S_IRUGO;
+	thgroup_proc_file->uid 	  = 0;
+	thgroup_proc_file->gid 	  = 0;
+	thgroup_proc_file->size 	  = 37;
+
 	ret = i2c_add_driver(&ft6x06_ts_driver);
 	if (ret)
 		pr_err("Adding ft6x06 driver failed (errno = %d)\n", ret);
@@ -505,6 +574,7 @@ static int __init ft6x06_ts_init(void)
 
 static void __exit ft6x06_ts_exit(void)
 {
+	remove_proc_entry(PROCFS_THGROUP, &proc_root);
 	i2c_del_driver(&ft6x06_ts_driver);
 }
 
